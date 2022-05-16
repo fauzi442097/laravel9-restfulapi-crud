@@ -5,9 +5,6 @@ namespace App\Http\Controllers;
 use App\Exceptions\ServiceException;
 use App\Http\Requests\LoginRequest;
 use App\Http\Requests\RegisterRequest;
-use Illuminate\Http\Request;
-use App\Models\User;
-use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 

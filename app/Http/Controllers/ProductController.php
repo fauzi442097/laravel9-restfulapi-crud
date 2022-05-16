@@ -2,33 +2,47 @@
 
 namespace App\Http\Controllers;
 
+use App\Exceptions\ServiceException;
 use App\Http\Requests\StoreProductRequest;
-use App\Http\Resources\ModelResource;
-use App\Http\Resources\UserResource;
-use App\Http\Resources\UserResourceCollection;
-use App\Models\Product;
-use Exception;
-use Illuminate\Http\Request;
-use Illuminate\Http\Response;
+use Illuminate\Support\Facades\DB;
+
+use App\Services\ProductService;
 
 
 class ProductController extends Controller
 {
+    public $productService, $modelResource;
+
+    public function __construct(
+        ProductService $product,
+    ) {
+        $this->productService = $product;
+    }
     /**
      * Display a listing of the resource.
      *
      * @return \Illuminate\Http\Response
      */
-    public function index(Request $request)
+    public function index()
     {
-        $products = Product::all();
+        DB::beginTransaction();
+        try {
 
-        return (new ModelResource($products))->message('Sukses Get Collection');
+            // User Laravel Resources
+            // $products = $this->productService->getProductsUsingResources();
 
-        // Contoh Menggunakan Resource Collection bawaan Laravel
-        // return new UserResourceCollection($products);
+            $products = $this->productService->getProducts();
+            DB::commit();
 
-        return $this->responseSuccess($products);
+            return $this->responseSuccess($products);
+        } catch (ServiceException $e) {
+            DB::rollBack();
+            return $this->ServiceExceptionHandler($e);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            report($e); // Reporting to Handler Without rendering error page
+            return $this->internalServerError($e->getMessage(), $e->getFile(), $e->getLine());
+        }
     }
 
     /**
@@ -40,24 +54,21 @@ class ProductController extends Controller
     public function store(StoreProductRequest $request)
     {
 
+        DB::beginTransaction();
         try {
-            $arrRequest = $request->all();
-            $product = Product::create([
-                'prod_name' => $arrRequest['ProductName'],
-                'scheme_no' => $arrRequest['SchemeNo'],
-                'duration_cert' => $arrRequest['DurationCert'],
-                'scheme_cert' => $arrRequest['SchemeCert'],
-                'price' => $arrRequest['Price']
-            ]);
 
-            return $this->responseSuccess($product);
-        } catch (\Exception $e) {
-            $error = [
-                'message' => $e->getMessage(),
-                'line' => $e->getLine(),
-                'file' => $e->getFile()
-            ];
-            return $this->responseError(Response::HTTP_INTERNAL_SERVER_ERROR, null, $error);
+            $arrRequest = $request->all();
+            $products = $this->productService->createProduct($arrRequest);
+            DB::commit();
+
+            return $this->responseSuccess($products);
+        } catch (ServiceException $e) {
+            DB::rollBack();
+            return $this->ServiceExceptionHandler($e);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            report($e); // Reporting to Handler Without rendering error page
+            return $this->internalServerError($e->getMessage(), $e->getFile(), $e->getLine());
         }
     }
 
@@ -67,20 +78,27 @@ class ProductController extends Controller
      * @param  \App\Models\Product  $product
      * @return \Illuminate\Http\Response
      */
-    public function show(Request $request, $productId)
+    public function show($productId)
     {
-        //
-        $product = Product::find($productId);
-        return (new ModelResource($product))->message('Sukses Get Data');
+        DB::beginTransaction();
+        try {
 
-        // Contoh Menggunakan API Resource Bawaan Laravel
-        // $resp = new UserResource($product);
+            // User Resource
+            // $product = $this->productService->getProductByIdUsingResoruce($productId);
+            // return $product;
 
+            $product = $this->productService->getProductById($productId);
+            DB::commit();
 
-        if (is_null($product)) {
-            return $this->responseError(Response::HTTP_NOT_FOUND, 'Data tidak ditemukan');
+            return $this->responseSuccess($product);
+        } catch (ServiceException $e) {
+            DB::rollBack();
+            return $this->ServiceExceptionHandler($e);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            report($e); // Reporting to Handler Without rendering error page
+            return $this->internalServerError($e->getMessage(), $e->getFile(), $e->getLine());
         }
-        return $this->responseSuccess($product);
     }
 
     /**
@@ -90,28 +108,24 @@ class ProductController extends Controller
      * @param  \App\Models\Product  $product
      * @return \Illuminate\Http\Response
      */
-    public function update(StoreProductRequest $request, Product $product)
+    public function update(StoreProductRequest $request, $productId)
     {
         //
+        DB::beginTransaction();
         try {
-            $arrRequest = $request->all();
-            $product::where('id', $product->id)
-                ->update([
-                    'prod_name' => $arrRequest['ProductName'],
-                    'scheme_no' => $arrRequest['SchemeNo'],
-                    'duration_cert' => $arrRequest['DurationCert'],
-                    'scheme_cert' => $arrRequest['SchemeCert'],
-                    'price' => $arrRequest['Price']
-                ]);
 
-            return $this->responseSuccess($product);
-        } catch (\Exception $e) {
-            $error = [
-                'message' => $e->getMessage(),
-                'line' => $e->getLine(),
-                'file' => $e->getFile()
-            ];
-            return $this->responseError(Response::HTTP_INTERNAL_SERVER_ERROR, null, $error);
+            $arrRequest = $request->all();
+            $productUpdated = $this->productService->updateProduct($arrRequest, $productId);
+            DB::commit();
+
+            return $this->responseSuccess($productUpdated);
+        } catch (ServiceException $e) {
+            DB::rollBack();
+            return $this->ServiceExceptionHandler($e);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            report($e); // Reporting to Handler Without rendering error page
+            return $this->internalServerError($e->getMessage(), $e->getFile(), $e->getLine());
         }
     }
 
@@ -121,14 +135,22 @@ class ProductController extends Controller
      * @param  \App\Models\Product  $product
      * @return \Illuminate\Http\Response
      */
-    public function destroy(Request $request, $productId)
+    public function destroy($productId)
     {
-        $product = Product::where('id', $productId);
-        if (is_null($product->first())) {
-            return $this->responseError(Response::HTTP_NOT_FOUND, 'Data tidak ditemukan');
-        }
+        DB::beginTransaction();
+        try {
 
-        $product->delete();
-        return $this->responseSuccess();
+            $this->productService->deleteProduct($productId);
+            DB::commit();
+
+            return $this->responseSuccess();
+        } catch (ServiceException $e) {
+            DB::rollBack();
+            return $this->ServiceExceptionHandler($e);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            report($e); // Reporting to Handler Without rendering error page
+            return $this->internalServerError($e->getMessage(), $e->getFile(), $e->getLine());
+        }
     }
 }
