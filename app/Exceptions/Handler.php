@@ -4,9 +4,12 @@ namespace App\Exceptions;
 
 use Illuminate\Foundation\Exceptions\Handler as ExceptionHandler;
 use Throwable;
+use App\Traits\ResponseApi;
 
 class Handler extends ExceptionHandler
 {
+    use ResponseApi;
+
     /**
      * A list of exception types with their corresponding custom log levels.
      *
@@ -44,7 +47,6 @@ class Handler extends ExceptionHandler
     public function register()
     {
         $this->reportable(function (Throwable $e) {
-            //
         });
     }
 }

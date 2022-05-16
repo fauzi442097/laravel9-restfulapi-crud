@@ -30,4 +30,17 @@ trait ResponseApi
         }
         return response()->json($responseBody, $statusCode);
     }
+
+    public function internalServerError($message, $file, $line)
+    {
+        $responseBody['code'] = Response::HTTP_INTERNAL_SERVER_ERROR;
+        $responseBody['error'] = Response::$statusTexts[Response::HTTP_INTERNAL_SERVER_ERROR];
+        $responseBody['details'] = [
+            'message' => $message,
+            'file' => $file,
+            'line' => $line
+        ];
+
+        return response()->json($responseBody, Response::HTTP_INTERNAL_SERVER_ERROR);
+    }
 }
